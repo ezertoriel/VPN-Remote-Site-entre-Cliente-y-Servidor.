@@ -1,0 +1,88 @@
+enable
+configure terminal
+hostname LAN-Router
+no ip domain-lookup
+line console 0
+password Rondon
+login
+exit
+line vty 0 4
+password Ezequiel
+login
+exit
+enable secret jimenez
+banner motd #No utilizar sin autorizacion previa.#
+interface e1/1
+duplex half
+no shutdown
+exit
+
+interface e1/1.10
+encapsulation dot1q 10
+ip address 172.8.63.1 255.255.255.128
+description Conexion-VLAN-10
+ip nat inside
+no shutdown
+exit
+
+ip dhcp excluded-address 172.8.63.1 172.8.63.3
+
+ip dhcp pool VLAN-10-Usuario
+network 172.8.63.0 255.255.255.128
+default-router 172.8.63.1
+exit
+
+interface e1/0
+ip address 192.8.63.200 255.255.255.0
+description Conexion-a-WAN
+no shutdown
+ip nat outside
+exit
+
+
+access-list 5 permit 172.8.63.0 0.0.0.127 
+
+ip nat inside source list 5 interface e1/0 overload
+
+ip route 0.0.0.0 0.0.0.0 e1/0
+ip route 0.0.0.0 0.0.0.0 192.8.63.2
+ip route 172.8.63.128 255.255.255.240 192.8.63.201
+ip route 172.8.63.128 255.255.255.240 192.8.63.201
+ip route 0.0.0.0 0.0.0.0 192.8.63.201
+
+crypto isakmp policy 10
+encryption des
+hash md5
+authentication pre-share
+group 5
+lifetime 86400
+
+crypto isakmp key palabras address 192.8.63.201
+
+crypto ipsec security-association lifetime seconds 43200
+
+ip access-list extended VPN-TRAFICO
+permit ip 172.8.63.0 0.0.0.127 172.8.63.128 0.0.0.15
+
+crypto ipsec transform-set TS-FG esp-des esp-md5-hmac
+mode tunnel
+
+crypto map CMAP-FG 10 ipsec-isakmp
+set peer 192.8.63.201
+set transform-set TS-FG
+set pfs group5
+match address VPN-TRAFICO
+
+interface e1/0
+crypto map CMAP-FG
+
+ip access-list extended NAT-ACL
+deny ip 172.8.63.0 0.0.0.127 172.8.63.128 0.0.0.15
+permit ip 172.8.63.0 0.0.0.127 any
+ip nat inside source list NAT-ACL interface e1/0 overload
+
+ip route 0.0.0.0 0.0.0.0 e1/0
+
+exit
+write
+copy running-config startup-config
